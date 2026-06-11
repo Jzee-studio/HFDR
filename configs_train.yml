@@ -1,13 +1,13 @@
 Operation:
   #Name
-  Prefix: "WRN34_10_F"
+  Prefix: "WRN34_10_F_HFDR"
   #record
   record_words: ""
   #Resume
   Resume: False
 Train:
   #Train Method [AT,HFDR,Natural]
-  Train_Method: "AT"
+  Train_Method: "HFDR"
   #Data [CIFAR10, CIFAR100, ImageNet-1K]
   Data: "CIFAR10"
   #Train Epoch

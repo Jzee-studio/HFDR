@@ -32,7 +32,7 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 def load_txt(path :str) -> list:
     return [line.rstrip('\n') for line in open(path)]
 
-corruptions = load_txt('./data/corruptions.txt')
+# corruptions = load_txt('./data/corruptions.txt')
 
 class CIFAR10C(datasets.VisionDataset):
     def __init__(self, root :str, name :str, 
