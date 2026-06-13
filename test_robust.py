@@ -10,11 +10,14 @@ from utils import *
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-# modify the load model
-net = ResNet18()
-
 with open('configs_test.yml') as f:
     config = EasyDict(yaml.load(f, Loader=yaml.FullLoader))
+
+# modify the load model
+# net = ResNet18()
+net = WRN34_10_F(Num_class=config.DATA.num_class)  # 改为与 train.py 一致
+
+
 
 file_name = config.Operation.Prefix
 data_set = config.DATA.Data

@@ -51,12 +51,15 @@ net = net.to(device)
 net = torch.nn.DataParallel(net)  # parallel GPU
 cudnn.benchmark = True
 
+optimizer = optim.SGD(net.parameters(), lr=learning_rate, momentum=0.9, weight_decay=5e-4)
+
 if config.Operation.Resume == True:
     # Load checkpoint.
     print('==> Resuming from checkpoint..')
     assert os.path.isdir(check_path), 'Error: no checkpoint directory found!'
     checkpoint = torch.load(os.path.join(check_path, 'checkpoint.pth.tar'))
     net.load_state_dict(checkpoint['state_dict'])
+    optimizer.load_state_dict(checkpoint['optimizer'])
     start_epoch = checkpoint['epoch']
     best_prec1 = checkpoint['best_prec1']
 else:
@@ -66,7 +69,6 @@ else:
     logger.info('%-5s\t%-10s\t%-9s\t%-9s\t%-8s\t%-15s', 'Epoch', 'Train Loss', 'Train Acc', 'Test Loss', 'Test Acc', 'Test Robust Acc')
 
 
-optimizer = optim.SGD(net.parameters(), lr=learning_rate, momentum=0.9, weight_decay=5e-4)
 for epoch in range(start_epoch + 1, config.Train.Epoch + 1):
     learning_rate = adjust_learning_rate(learning_rate, optimizer, epoch)
     if config.Train.Train_Method == 'AT':

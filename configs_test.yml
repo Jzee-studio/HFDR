@@ -1,8 +1,8 @@
 Operation:
     #Name
-    Prefix: 'WRN34_10'
+    Prefix: 'WRN34_10_F_Natural'
     #Train Method [AT, Natural]
-    Method: 'AT'
+    Method: 'Natural'
     #Proposed Method Edit Prefix
     Addtional_string: ''
     Record_string: ''
