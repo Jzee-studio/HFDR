@@ -11,7 +11,10 @@ with open('configs_train.yml') as f:
     config = EasyDict(yaml.load(f, Loader=yaml.FullLoader))
 
 # modify the load model
-net = WRN34_10_F(Num_class=config.DATA.num_class)
+if config.Train.Train_Method == 'LFCM':
+    net = WRN34_10_LFCM(Num_class=config.DATA.num_class)
+else:
+    net = WRN34_10_F(Num_class=config.DATA.num_class)
 # net = ResNet18_F(Num_class=config.DATA.num_class)
 
 file_name = config.Operation.Prefix
@@ -34,7 +37,7 @@ logging.basicConfig(
 net.Num_class = config.DATA.num_class
 norm_mean = torch.tensor(config.DATA.mean).to(device)
 norm_std = torch.tensor(config.DATA.std).to(device)
-if config.Train.Train_Method == 'AT' or config.Train.Train_Method == 'TRADES' or config.Train.Train_Method == 'HFDR':
+if config.Train.Train_Method == 'AT' or config.Train.Train_Method == 'TRADES' or config.Train.Train_Method == 'HFDR' or config.Train.Train_Method == 'LFCM':
     net.Norm = True
     net.norm_mean = norm_mean
     net.norm_std = norm_std
@@ -75,6 +78,8 @@ for epoch in range(start_epoch + 1, config.Train.Epoch + 1):
         acc_train, train_loss = train_adversarial(net, epoch, train_loader, optimizer, config)
     elif config.Train.Train_Method == 'HFDR':
         acc_train, train_loss = train_adversarial_HF_1(net, epoch, train_loader, optimizer, config)
+    elif config.Train.Train_Method == 'LFCM':
+        acc_train, train_loss = train_LFCM(net, epoch, train_loader, optimizer, config)
     else:
         acc_train, train_loss = train(net, epoch, train_loader, optimizer, config)
     # acc_test, pgd_acc, loss_test, best_prec1 = test_net_normal(net, test_loader, epoch, optimizer, best_prec1, config, save_path=check_path)

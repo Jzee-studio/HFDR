@@ -237,3 +237,86 @@ class ResNet_DFT(nn.Module):
         
 def ResNet18_DFT_F(Num_class=10, Norm=False, norm_mean=None, norm_std=None):
     return ResNet_DFT(BasicBlock, [2,2,2,2], num_classes=Num_class, norm=Norm, mean=norm_mean, std=norm_std)
+
+
+class ResNet_LFCM(nn.Module):
+    """
+    ResNet with SRMFilter + Recalibration + LFCM.
+    LFCM canonicalizes the low-frequency component after SRMFilter separation.
+    """
+
+    def __init__(self, block, num_blocks, num_classes=10, norm=False, mean=None, std=None,
+                 codebook_size=64, code_dim=32, hidden_dim=64, tau=1.0):
+        super(ResNet_LFCM, self).__init__()
+        self.in_planes = 64
+        self.norm = norm
+        self.mean = mean
+        self.std = std
+
+        self.conv1 = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=False)
+        self.bn1 = nn.BatchNorm2d(64)
+        self.layer1 = self._make_layer(block, 64, num_blocks[0], stride=1)
+        self.layer2 = self._make_layer(block, 128, num_blocks[1], stride=2)
+        self.layer3 = self._make_layer(block, 256, num_blocks[2], stride=2)
+        self.layer4 = self._make_layer(block, 512, num_blocks[3], stride=2)
+        self.linear = nn.Linear(512 * block.expansion, num_classes)
+
+        self.recon_size = 64
+        self.Filter = SRMFilter(self.recon_size)
+        self.Recon = Recalibration(self.recon_size)
+        # LFCM canonicalizes the LF component (64 channels for ResNet)
+        self.LFCM = LFCM(in_channel=self.recon_size,
+                         codebook_size=codebook_size,
+                         code_dim=code_dim,
+                         hidden_dim=hidden_dim,
+                         tau=tau)
+
+    def _make_layer(self, block, planes, num_blocks, stride):
+        strides = [stride] + [1] * (num_blocks - 1)
+        layers = []
+        for stride in strides:
+            layers.append(block(self.in_planes, planes, stride))
+            self.in_planes = planes * block.expansion
+        return nn.Sequential(*layers)
+
+    def forward(self, x, return_aux=False):
+        """
+        Args:
+            x: input tensor
+            return_aux: if True, returns (logits, aux_dict)
+
+        Returns:
+            logits when return_aux=False (inference / PGD attack)
+            (logits, aux_dict) when return_aux=True (training)
+        """
+        if self.norm:
+            x = Normalization(x, self.mean, self.std)
+        out = F.relu(self.bn1(self.conv1(x)))
+        HF, LF, mask = self.Filter(out)
+        HF_fine = self.Recon(HF, mask)
+
+        # LFCM canonicalizes LF features
+        LF_canon, z, z_hat, w = self.LFCM(LF)
+
+        out = HF_fine + LF_canon
+        out = self.layer1(out)
+        out = self.layer2(out)
+        out = self.layer3(out)
+        out = self.layer4(out)
+        out = F.avg_pool2d(out, 4)
+        out = out.view(out.size(0), -1)
+        logits = self.linear(out)
+
+        if return_aux:
+            aux = {'mask': mask, 'z': z, 'z_hat': z_hat, 'w': w}
+            return logits, aux
+        else:
+            return logits
+
+
+def ResNet18_LFCM(Num_class=10, Norm=False, norm_mean=None, norm_std=None,
+                  codebook_size=64, code_dim=32, hidden_dim=64, tau=1.0):
+    return ResNet_LFCM(BasicBlock, [2, 2, 2, 2], num_classes=Num_class,
+                       norm=Norm, mean=norm_mean, std=norm_std,
+                       codebook_size=codebook_size, code_dim=code_dim,
+                       hidden_dim=hidden_dim, tau=tau)

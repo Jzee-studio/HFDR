@@ -15,7 +15,10 @@ with open('configs_test.yml') as f:
 
 # modify the load model
 # net = ResNet18()
-net = WRN34_10_F(Num_class=config.DATA.num_class)  # 改为与 train.py 一致
+if config.Operation.Method == 'LFCM':
+    net = WRN34_10_LFCM(Num_class=config.DATA.num_class)
+else:
+    net = WRN34_10_F(Num_class=config.DATA.num_class)
 
 
 
@@ -38,13 +41,13 @@ logging.basicConfig(
 net.Num_class = config.DATA.num_class
 norm_mean = torch.tensor(config.DATA.mean).to(device)
 norm_std = torch.tensor(config.DATA.std).to(device)
-if config.Operation.Method == 'AT':
+if config.Operation.Method in ('AT', 'LFCM'):
     net.Norm = True
     net.norm_mean = norm_mean
     net.norm_std = norm_std
     Data_norm = False
     logger.info("Adversarial Training Model Robustness")
-else: 
+else:
     net.Norm = False
     Data_norm = True
     logger.info("Natural Training Model Robustness")

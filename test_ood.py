@@ -20,12 +20,15 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 
 
 def build_model(config):
-    net = WRN34_10_F(Num_class=config.DATA.num_class)
+    if config.Train.Train_Method == "LFCM":
+        net = WRN34_10_LFCM(Num_class=config.DATA.num_class)
+    else:
+        net = WRN34_10_F(Num_class=config.DATA.num_class)
     net.Num_class = config.DATA.num_class
     norm_mean = torch.tensor(config.DATA.mean).to(device)
     norm_std = torch.tensor(config.DATA.std).to(device)
 
-    if config.Train.Train_Method in {"AT", "HFDR", "TRADES"}:
+    if config.Train.Train_Method in {"AT", "HFDR", "TRADES", "LFCM"}:
         net.Norm = True
         net.norm_mean = norm_mean
         net.norm_std = norm_std

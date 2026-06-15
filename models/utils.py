@@ -149,3 +149,169 @@ class Recalibration(nn.Module):
         rec_units = rec_units * mask
 
         return rec_units
+
+
+class LFCM(nn.Module):
+    """
+    Low-Frequency Canonicalization Module.
+
+    Extracts global low-frequency statistics via average pooling, encodes them
+    to a latent code, soft-quantizes via a learned codebook, and applies
+    channel-wise FiLM to canonicalize LF features.
+
+    Key mechanisms:
+    - EMA codebook updates (VQ-VAE v2 style) for stable training
+    - Dead code reset to prevent codebook collapse
+    - Channel-wise λ gating for adaptive canonicalization strength
+    - Temperature annealing support for curriculum learning
+    """
+
+    def __init__(self, in_channel=16, codebook_size=64, code_dim=32,
+                 hidden_dim=64, tau=1.0, ema_decay=0.99, dead_threshold=2):
+        """
+        Args:
+            in_channel: Number of input feature channels (C)
+            codebook_size: Number of canonical codes (K)
+            code_dim: Dimension of each code vector (d)
+            hidden_dim: Hidden dimension of encoder/decoder MLPs
+            tau: Temperature for soft quantization (higher = softer)
+            ema_decay: EMA decay rate for codebook updates
+            dead_threshold: Min assignments to avoid reset (in batch count units)
+        """
+        super(LFCM, self).__init__()
+        self.in_channel = in_channel
+        self.codebook_size = codebook_size
+        self.code_dim = code_dim
+        self.tau = tau
+        self.ema_decay = ema_decay
+        self.dead_threshold = dead_threshold
+
+        # Encoder: C -> hidden -> code_dim
+        self.encoder = nn.Sequential(
+            nn.Linear(in_channel, hidden_dim),
+            nn.ReLU(inplace=True),
+            nn.Linear(hidden_dim, code_dim),
+        )
+
+        # Learnable codebook: (K, code_dim)
+        self.register_buffer('codebook', torch.randn(codebook_size, code_dim) * 0.01)
+        # EMA cluster sizes for dead code detection
+        self.register_buffer('ema_cluster_size', torch.zeros(codebook_size))
+        # EMA accumulated encoder outputs per code
+        self.register_buffer('ema_embed_sum', torch.randn(codebook_size, code_dim) * 0.01)
+
+        # Decoder: code_dim -> hidden -> 2*C (γ and β)
+        self.decoder = nn.Sequential(
+            nn.Linear(code_dim, hidden_dim),
+            nn.ReLU(inplace=True),
+            nn.Linear(hidden_dim, 2 * in_channel),
+        )
+
+        # Channel-wise lambda (residual strength), init small via sigmoid(-4) ≈ 0.018
+        self.lambda_raw = nn.Parameter(torch.full((in_channel, 1, 1), -4.0))
+
+    def forward(self, LF):
+        """
+        Args:
+            LF: (B, C, H, W) low-frequency feature map
+
+        Returns:
+            LF_out: (B, C, H, W) canonicalized LF features
+            z:      (B, code_dim) encoded latent code (for commitment loss)
+            z_hat:  (B, code_dim) soft-quantized canonical code (for canon loss)
+            w:      (B, K) soft assignment weights (for diversity/perplexity loss)
+        """
+        B, C, H, W = LF.shape
+
+        # 1. Global Average Pool -> (B, C)
+        F_pool = LF.mean(dim=[2, 3])  # (B, C)
+
+        # 2. Encode -> (B, code_dim)
+        z = self.encoder(F_pool)  # (B, code_dim)
+
+        # 3. Soft quantization via cosine similarity
+        z_norm = F.normalize(z, dim=1)                     # (B, code_dim)
+        cb_norm = F.normalize(self.codebook, dim=1)        # (K, code_dim)
+        sim = torch.matmul(z_norm, cb_norm.t())            # (B, K)
+        sim = sim / self.tau
+        w = F.softmax(sim, dim=1)                          # (B, K)
+
+        # 4. Weighted sum of codebook entries -> (B, code_dim)
+        z_hat = torch.matmul(w, self.codebook)             # (B, code_dim)
+
+        # 5. Decode -> (B, 2*C)
+        decoded = self.decoder(z_hat)                       # (B, 2*C)
+        gamma = decoded[:, :C].view(B, C, 1, 1)            # (B, C, 1, 1)
+        beta = decoded[:, C:].view(B, C, 1, 1)             # (B, C, 1, 1)
+
+        # 6. FiLM transformation
+        LF_prime = gamma * LF + beta                        # (B, C, H, W)
+
+        # 7. Channel-wise gated residual
+        lambda_gate = torch.sigmoid(self.lambda_raw)       # (C, 1, 1), in [0, 1]
+        LF_out = LF + lambda_gate * LF_prime               # (B, C, H, W)
+
+        # 8. Update EMA statistics (only when not in a gradient-computing context,
+        #    e.g., skip during PGD attack inner loop where inputs require grad)
+        if self.training and not LF.requires_grad:
+            self._ema_update(z, w)
+
+        return LF_out, z, z_hat, w
+
+    @torch.no_grad()
+    def _ema_update(self, z, w):
+        """
+        EMA update of codebook entries (VQ-VAE v2 style).
+        Called during training to track cluster sizes and update embeddings.
+
+        Args:
+            z:  (B, code_dim) encoded latent codes
+            w:  (B, K) soft assignment weights
+        """
+        B = z.shape[0]
+        # Hard assignment for EMA: argmax of soft weights
+        hard_w = F.one_hot(w.argmax(dim=1), num_classes=self.codebook_size).float()  # (B, K)
+
+        # Update cluster sizes
+        cluster_size = hard_w.sum(dim=0)  # (K,)
+        self.ema_cluster_size.mul_(self.ema_decay).add_(
+            cluster_size, alpha=1 - self.ema_decay
+        )
+
+        # Update embedding sums
+        embed_sum = torch.matmul(hard_w.t(), z)  # (K, code_dim)
+        self.ema_embed_sum.mul_(self.ema_decay).add_(
+            embed_sum, alpha=1 - self.ema_decay
+        )
+
+        # Normalize to update codebook entries
+        n = self.ema_cluster_size.sum()
+        cluster_size_norm = (
+            (self.ema_cluster_size + 1e-8) / (n + self.codebook_size * 1e-8) * n
+        )
+        embed_norm = self.ema_embed_sum / cluster_size_norm.unsqueeze(1)
+        self.codebook.copy_(embed_norm)
+
+    @torch.no_grad()
+    def reset_dead_codes(self, z_batch):
+        """
+        Reset codebook entries that have near-zero usage.
+        Re-initialize them to random encoder outputs from the current batch.
+
+        Args:
+            z_batch: (B, code_dim) encoder outputs from a recent batch
+        """
+        batch_size = z_batch.shape[0]
+        dead_codes = self.ema_cluster_size < self.dead_threshold
+        n_dead = dead_codes.sum().item()
+
+        if n_dead > 0 and batch_size > 0:
+            # Sample random encoder outputs to re-initialize dead codes
+            indices = torch.randint(0, batch_size, (n_dead,), device=z_batch.device)
+            self.codebook[dead_codes] = z_batch[indices].clone()
+            # Reset EMA stats for re-initialized codes
+            self.ema_cluster_size[dead_codes] = self.dead_threshold * torch.ones(n_dead, device=self.codebook.device)
+            self.ema_embed_sum[dead_codes] = z_batch[indices].clone() * self.dead_threshold
+
+            return n_dead
+        return 0
