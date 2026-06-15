@@ -12,7 +12,16 @@ with open('configs_train.yml') as f:
 
 # modify the load model
 if config.Train.Train_Method == 'LFCM':
-    net = WRN34_10_LFCM(Num_class=config.DATA.num_class)
+    lfcm_cfg = config.get('LFCM', {})
+    net = WRN34_10_LFCM(
+        Num_class=config.DATA.num_class,
+        codebook_size=lfcm_cfg.get('codebook_size', 64),
+        code_dim=lfcm_cfg.get('code_dim', 32),
+        hidden_dim=lfcm_cfg.get('hidden_dim', 64),
+        tau=lfcm_cfg.get('tau_init', 1.0),
+        ema_decay=lfcm_cfg.get('ema_decay', 0.99),
+        dead_threshold=lfcm_cfg.get('dead_threshold', 2),
+    )
 else:
     net = WRN34_10_F(Num_class=config.DATA.num_class)
 # net = ResNet18_F(Num_class=config.DATA.num_class)

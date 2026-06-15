@@ -164,7 +164,8 @@ class WideResNet_LFCM(nn.Module):
 
     def __init__(self, depth=34, num_classes=10, widen_factor=10, dropRate=0.0,
                  norm=False, mean=None, std=None,
-                 codebook_size=64, code_dim=32, hidden_dim=64, tau=1.0):
+                 codebook_size=64, code_dim=32, hidden_dim=64, tau=1.0,
+                 ema_decay=0.99, dead_threshold=2):
         super(WideResNet_LFCM, self).__init__()
         self.norm = norm
         self.mean = mean
@@ -200,7 +201,9 @@ class WideResNet_LFCM(nn.Module):
                          codebook_size=codebook_size,
                          code_dim=code_dim,
                          hidden_dim=hidden_dim,
-                         tau=tau)
+                         tau=tau,
+                         ema_decay=ema_decay,
+                         dead_threshold=dead_threshold)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -255,8 +258,10 @@ def WRN34_10_F(Num_class=10, Norm=False, norm_mean=None, norm_std=None):
     return WideResNet_F(num_classes=Num_class, depth=34, widen_factor=10, norm=Norm, mean=norm_mean, std=norm_std)
 
 def WRN34_10_LFCM(Num_class=10, Norm=False, norm_mean=None, norm_std=None,
-                  codebook_size=64, code_dim=32, hidden_dim=64, tau=1.0):
+                  codebook_size=64, code_dim=32, hidden_dim=64, tau=1.0,
+                  ema_decay=0.99, dead_threshold=2):
     return WideResNet_LFCM(num_classes=Num_class, depth=34, widen_factor=10,
                            norm=Norm, mean=norm_mean, std=norm_std,
                            codebook_size=codebook_size, code_dim=code_dim,
-                           hidden_dim=hidden_dim, tau=tau)
+                           hidden_dim=hidden_dim, tau=tau,
+                           ema_decay=ema_decay, dead_threshold=dead_threshold)

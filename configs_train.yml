@@ -1,6 +1,6 @@
 Operation:
   #Name
-  Prefix: "WRN34_10_LFCM"
+  Prefix: "WRN34_10_LFCM_K32"
   #record
   record_words: ""
   #Resume
@@ -35,3 +35,34 @@ ADV:
   # the same clip_eps as above is used for PGD
   pgd_attack_1: 20
   pgd_attack_2: 100
+
+# ============================================================
+# LFCM Configuration (only used when Train_Method == "LFCM")
+# ============================================================
+LFCM:
+  # -- Architecture --
+  codebook_size: 32        # K: number of canonical codes
+  code_dim: 32             # d: dimension of each code vector
+  hidden_dim: 64           # MLP hidden dimension in encoder/decoder
+
+  # -- Loss weights --
+  w_commit: 0.25           # encoder→codebook commitment loss
+  w_div: 0.1               # codebook diversity (perplexity) loss
+  w_canon: 0.5             # clean↔adv canonicalization alignment loss
+
+  # -- Training schedule --
+  warmup_epochs: 30        # stage 1: only CE + mask_constrain
+  commit_ramp_end: 60      # stage 2 end: commitment + diversity ramped in
+  canon_ramp_start: 60     # stage 3 start: canonicalization ramped in
+  canon_ramp_end: 70       # stage 3 ramp end: full canonicalization weight
+
+  # -- Temperature --
+  tau_init: 2.0            # initial soft quantization temperature
+  tau_final: 0.5           # final temperature (lower = harder assignment)
+  tau_anneal_start: 30     # tau annealing start epoch
+  tau_anneal_end: 100      # tau annealing end epoch
+
+  # -- Maintenance --
+  dead_code_reset_interval: 5  # check & reset dead codes every N epochs
+  ema_decay: 0.99              # EMA decay rate for codebook updates
+  dead_threshold: 2            # min EMA cluster size to avoid reset

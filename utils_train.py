@@ -547,35 +547,45 @@ def train_LFCM(net: nn.Module, epoch: int, train_loader: DataLoader, optimizer: 
     total = 0
     criterion = nn.CrossEntropyLoss()
 
+    # ---- Read LFCM config with defaults ----
+    lfcm_cfg = config.get('LFCM', {})
+    warmup_epochs = lfcm_cfg.get('warmup_epochs', 30)
+    commit_ramp_end = lfcm_cfg.get('commit_ramp_end', 60)
+    canon_ramp_start = lfcm_cfg.get('canon_ramp_start', 60)
+    canon_ramp_end = lfcm_cfg.get('canon_ramp_end', 70)
+    w_commit_full = lfcm_cfg.get('w_commit', 0.25)
+    w_div_full = lfcm_cfg.get('w_div', 0.1)
+    w_canon_full = lfcm_cfg.get('w_canon', 0.5)
+    tau_init = lfcm_cfg.get('tau_init', 2.0)
+    tau_final = lfcm_cfg.get('tau_final', 0.5)
+    tau_anneal_start = lfcm_cfg.get('tau_anneal_start', 30)
+    tau_anneal_end = lfcm_cfg.get('tau_anneal_end', 100)
+    dead_code_interval = lfcm_cfg.get('dead_code_reset_interval', 5)
+
     # ---- Stage-dependent loss weights ----
-    # Stage 1 (1-30): only CE + mask
+    # Stage 1: CE + mask only (warmup)
     w_mask = 0.1  # always active (same as HFDR)
-    if epoch <= 30:
+    if epoch <= warmup_epochs:
         w_commit = 0.0
         w_div = 0.0
         w_canon = 0.0
-    elif epoch <= 60:
+    elif epoch <= commit_ramp_end:
         # Stage 2: ramp commitment and diversity
-        ramp = (epoch - 30) / 30.0  # linear ramp from 0 to 1
-        w_commit = 0.25 * ramp
-        w_div = 0.1 * ramp
+        ramp = (epoch - warmup_epochs) / float(commit_ramp_end - warmup_epochs)
+        w_commit = w_commit_full * ramp
+        w_div = w_div_full * ramp
         w_canon = 0.0
     else:
-        # Stage 3: full objective
-        w_commit = 0.25
-        w_div = 0.1
-        if epoch <= 70:
-            # Ramp canonicalization over 10 epochs
-            ramp_canon = (epoch - 60) / 10.0
-            w_canon = 0.5 * ramp_canon
+        # Stage 3: full objective with canonicalization ramp
+        w_commit = w_commit_full
+        w_div = w_div_full
+        if epoch <= canon_ramp_end:
+            ramp_canon = (epoch - canon_ramp_start) / float(canon_ramp_end - canon_ramp_start)
+            w_canon = w_canon_full * ramp_canon
         else:
-            w_canon = 0.5
+            w_canon = w_canon_full
 
     # ---- Temperature annealing ----
-    tau_init = 2.0
-    tau_final = 0.5
-    tau_anneal_start = 30
-    tau_anneal_end = 100
     if hasattr(net, 'module'):
         lfcm = net.module.LFCM
     else:
@@ -588,8 +598,8 @@ def train_LFCM(net: nn.Module, epoch: int, train_loader: DataLoader, optimizer: 
         progress = (epoch - tau_anneal_start) / (tau_anneal_end - tau_anneal_start)
         lfcm.tau = tau_init + (tau_final - tau_init) * progress
 
-    # ---- Dead code reset (every 5 epochs) ----
-    if epoch % 5 == 0 and epoch > 0:
+    # ---- Dead code reset ----
+    if epoch % dead_code_interval == 0 and epoch > 0:
         # Collect a batch of encoder outputs for reset
         z_samples = []
         lfcm.eval()  # temporarily disable EMA during collection

@@ -1,0 +1,19 @@
+# Weak canonicalization (w_canon=0.25)
+LFCM:
+  codebook_size: 64
+  code_dim: 32
+  hidden_dim: 64
+  w_commit: 0.25
+  w_div: 0.1
+  w_canon: 0.25
+  warmup_epochs: 30
+  commit_ramp_end: 60
+  canon_ramp_start: 60
+  canon_ramp_end: 70
+  tau_init: 2.0
+  tau_final: 0.5
+  tau_anneal_start: 30
+  tau_anneal_end: 100
+  dead_code_reset_interval: 5
+  ema_decay: 0.99
+  dead_threshold: 2

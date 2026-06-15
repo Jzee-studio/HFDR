@@ -1,0 +1,19 @@
+# Early canonicalization (starts at epoch 40 instead of 60)
+LFCM:
+  codebook_size: 64
+  code_dim: 32
+  hidden_dim: 64
+  w_commit: 0.25
+  w_div: 0.1
+  w_canon: 0.5
+  warmup_epochs: 20
+  commit_ramp_end: 40
+  canon_ramp_start: 40
+  canon_ramp_end: 50
+  tau_init: 2.0
+  tau_final: 0.5
+  tau_anneal_start: 20
+  tau_anneal_end: 80
+  dead_code_reset_interval: 5
+  ema_decay: 0.99
+  dead_threshold: 2
