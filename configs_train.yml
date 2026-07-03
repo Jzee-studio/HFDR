@@ -1,15 +1,23 @@
 Operation:
   #Name
-  Prefix: "WRN34_10_LFCM_K32"
+  Prefix: "WRN34_100_LFCM"
   #record
   record_words: ""
   #Resume
   Resume: False
+  # WandB logging (optional, safe fallback if disabled or unavailable)
+  Use_WandB: True
+  WandB_Project: "Natural_Training"
+  WandB_Entity: ""
+  WandB_Group: "Natural_Training"
+  WandB_RunName: "WRN34_100_LFCM"
+  WandB_Tags: ["CIFAR100","LFCM"]
+  WandB_Mode: "online"
 Train:
   #Train Method [AT,HFDR,Natural,LFCM]
   Train_Method: "LFCM"
   #Data [CIFAR10, CIFAR100, ImageNet-1K]
-  Data: "CIFAR10"
+  Data: "CIFAR100"
   #Train Epoch
   Epoch: 110
   #Learning
@@ -21,7 +29,7 @@ Train:
   pgd_train: 10
 DATA:
   #Num class
-  num_class: 10
+  num_class: 100
   # Dataset mean and std used for data normalization
   mean: !!python/tuple [0.4914, 0.4822, 0.4465]
   std: !!python/tuple [0.2471, 0.2435, 0.2616]
@@ -41,7 +49,7 @@ ADV:
 # ============================================================
 LFCM:
   # -- Architecture --
-  codebook_size: 32        # K: number of canonical codes
+  codebook_size: 64         # K: number of canonical codes
   code_dim: 32             # d: dimension of each code vector
   hidden_dim: 64           # MLP hidden dimension in encoder/decoder
 
@@ -60,7 +68,7 @@ LFCM:
   tau_init: 2.0            # initial soft quantization temperature
   tau_final: 0.5           # final temperature (lower = harder assignment)
   tau_anneal_start: 30     # tau annealing start epoch
-  tau_anneal_end: 100      # tau annealing end epoch
+  tau_anneal_end: 100       # tau annealing end epoch
 
   # -- Maintenance --
   dead_code_reset_interval: 5  # check & reset dead codes every N epochs

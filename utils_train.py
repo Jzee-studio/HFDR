@@ -14,6 +14,11 @@ from torch import Tensor
 from torch.autograd import Variable
 from models.utils import Normalization
 
+try:
+    from swanlab_utils import SwanLabLogger
+except Exception:
+    SwanLabLogger = None
+
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 def adjust_learning_rate(learning_rate, optimizer, epoch):
@@ -197,12 +202,18 @@ def test_net_robust(net: nn.Module, test_loader: DataLoader, epoch: int, optimiz
     best_prec_robust = max(adv_acc, best_prec)
     if not os.path.isdir(save_path):
         os.mkdir(save_path)
-    save_checkpoint({
+    state = {
         'epoch': epoch,
         'state_dict': net.state_dict(),
         'best_prec1': best_prec_robust,
         'optimizer': optimizer.state_dict(),
-    }, is_best, os.path.join(save_path))
+    }
+    # Save LFCM architecture if available (for evaluation script compatibility)
+    if hasattr(net, 'module') and hasattr(net.module, 'lfcm_arch'):
+        state['lfcm_arch'] = net.module.lfcm_arch
+    elif hasattr(net, 'lfcm_arch'):
+        state['lfcm_arch'] = net.lfcm_arch
+    save_checkpoint(state, is_best, os.path.join(save_path))
     print('Model Saved!')
     return test_acc, adv_acc, benign_loss_test, best_prec_robust
 

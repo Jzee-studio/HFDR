@@ -1,20 +1,28 @@
 Operation:
     #Name
-    Prefix: 'WRN34_10_LFCM'
+    Prefix: 'WRN34_10_F_Natural'
     #Train Method [AT, Natural]
-    Method: 'LFCM'
+    Method: 'Natural'
     #Proposed Method Edit Prefix
     Addtional_string: ''
     Record_string: ''
     #Validate Best
-    Validate_Best: True
+    Validate_Best: False
     #Validate Last
-    Validate_Last: False
+    Validate_Last: True
     #Test attack Choosing
     Validate_Natural: True
     Validate_PGD: True
     Validate_CW: True
     Validate_Autoattack: True
+    # WandB logging (optional, safe fallback if disabled or unavailable)
+    Use_WandB: True
+    WandB_Project: "Natural_Training"
+    WandB_Entity: ""
+    WandB_Group: "Natural_Training"
+    WandB_RunName: "WRN34_10_F_Natural"
+    WandB_Tags: ["CIFAR10","Natural"]
+    WandB_Mode: "online"
 DATA:
     #Data
     Data: 'CIFAR10'
@@ -33,4 +41,11 @@ ADV:
     - !!python/tuple [20, 8, 2]
     - !!python/tuple [100, 8, 2]
 
-    
+# ============================================================
+# LFCM Architecture (must match training configs_train.yml)
+# Only used when Operation.Method == "LFCM"
+# ============================================================
+LFCM:
+    codebook_size: 64        # K: number of canonical codes (must match checkpoint)
+    code_dim: 32             # d: code vector dimension
+    hidden_dim: 64           # MLP hidden dimension
