@@ -1,17 +1,17 @@
 Operation:
   #Name
-  Prefix: "WRN34_100_LFCM"
+  Prefix: "WRN34_100_LFCM_K128"
   #record
   record_words: ""
   #Resume
   Resume: False
   # WandB logging (optional, safe fallback if disabled or unavailable)
   Use_WandB: True
-  WandB_Project: "Natural_Training"
+  WandB_Project: "LFCM"
   WandB_Entity: ""
-  WandB_Group: "Natural_Training"
-  WandB_RunName: "WRN34_100_LFCM"
-  WandB_Tags: ["CIFAR100","LFCM"]
+  WandB_Group: "LFCM"
+  WandB_RunName: "WRN34_100_LFCM_K128"
+  WandB_Tags: ["CIFAR100","LFCM","K128"]
   WandB_Mode: "online"
 Train:
   #Train Method [AT,HFDR,Natural,LFCM]
@@ -49,7 +49,7 @@ ADV:
 # ============================================================
 LFCM:
   # -- Architecture --
-  codebook_size: 64         # K: number of canonical codes
+  codebook_size: 128         # K: number of canonical codes
   code_dim: 32             # d: dimension of each code vector
   hidden_dim: 64           # MLP hidden dimension in encoder/decoder
 

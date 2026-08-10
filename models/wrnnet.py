@@ -92,7 +92,7 @@ class WideResNet(nn.Module):
         out = self.block2(out)
         out = self.block3(out)
         out = self.relu(self.bn1(out))
-        out = F.avg_pool2d(out, 8)
+        out = F.adaptive_avg_pool2d(out, 1)
         out = out.view(-1, self.nChannels)
         return self.fc(out)
 
@@ -147,7 +147,7 @@ class WideResNet_F(nn.Module):
         out = self.block2(out)
         out = self.block3(out)
         out = self.relu(self.bn1(out))
-        out = F.avg_pool2d(out, 8)
+        out = F.adaptive_avg_pool2d(out, 1)
         out = out.view(-1, self.nChannels)
         out_1 = self.fc(out)
         if is_eval == False:
@@ -240,7 +240,7 @@ class WideResNet_LFCM(nn.Module):
         out = self.block2(out)
         out = self.block3(out)
         out = self.relu(self.bn1(out))
-        out = F.avg_pool2d(out, 8)
+        out = F.adaptive_avg_pool2d(out, 1)
         out = out.view(-1, self.nChannels)
         logits = self.fc(out)
 

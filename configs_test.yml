@@ -1,13 +1,13 @@
 Operation:
     #Name
-    Prefix: 'WRN34_10_F_Natural'
+    Prefix: 'WRN34_200_LFCM'
     #Train Method [AT, Natural]
-    Method: 'Natural'
+    Method: 'LFCM'
     #Proposed Method Edit Prefix
     Addtional_string: ''
     Record_string: ''
     #Validate Best
-    Validate_Best: False
+    Validate_Best: True
     #Validate Last
     Validate_Last: True
     #Test attack Choosing
@@ -17,17 +17,17 @@ Operation:
     Validate_Autoattack: True
     # WandB logging (optional, safe fallback if disabled or unavailable)
     Use_WandB: True
-    WandB_Project: "Natural_Training"
+    WandB_Project: "LFCM"
     WandB_Entity: ""
-    WandB_Group: "Natural_Training"
-    WandB_RunName: "WRN34_10_F_Natural"
-    WandB_Tags: ["CIFAR10","Natural"]
+    WandB_Group: "LFCM"
+    WandB_RunName: "WRN34_200_LFCM"
+    WandB_Tags: ["TinyImageNet","LFCM"]
     WandB_Mode: "online"
 DATA:
     #Data
-    Data: 'CIFAR10'
+    Data: 'TinyImageNet'
     #Num class
-    num_class: 10
+    num_class: 200
     # Dataset mean and std used for data normalization
     mean: !!python/tuple [0.4914, 0.4822, 0.4465]
     std: !!python/tuple [0.2471, 0.2435, 0.2616]

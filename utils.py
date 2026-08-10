@@ -217,10 +217,10 @@ def create_dataloader(dataset, Norm):
             transform_test = transforms.Compose([
                 transforms.ToTensor(),
             ])
-        train_dataset = TinyImageNet('./data/tiny-imagenet-200','train',transform=transform_train)
-        testset = TinyImageNet('./data/tiny-imagenet-200','val',transform=transform_test)
-        train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=128, shuffle=True, num_workers=8)
-        test_loader = torch.utils.data.DataLoader(testset, batch_size=100, shuffle=False, num_workers=8)
+        train_dataset = TinyImageNet('/data/xujiazhao/tiny-imagenet-200','train',transform=transform_train)
+        testset = TinyImageNet('/data/xujiazhao/tiny-imagenet-200','val',transform=transform_test)
+        train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=64, shuffle=True, num_workers=4)
+        test_loader = torch.utils.data.DataLoader(testset, batch_size=64, shuffle=False, num_workers=4)
         return train_loader, test_loader
     if dataset == "Imagenette":
         if Norm == True:
@@ -245,10 +245,10 @@ def create_dataloader(dataset, Norm):
             transform_test = transforms.Compose([
                 transforms.ToTensor(),
             ])
-        train_dataset = torchvision.datasets.ImageFolder(root='./data/imagenette2-160/train',transform=transform_train)
-        testset = torchvision.datasets.ImageFolder(root='./data/imagenette2-160/val',transform=transform_train)
-        train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=128, shuffle=True, num_workers=8)
-        test_loader = torch.utils.data.DataLoader(testset, batch_size=100, shuffle=False, num_workers=8)
+        train_dataset = torchvision.datasets.ImageFolder(root='/data/xujiazhao/imagenette2-160/train',transform=transform_train)
+        testset = torchvision.datasets.ImageFolder(root='/data/xujiazhao/imagenette2-160/val',transform=transform_train)
+        train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=128, shuffle=True, num_workers=4)
+        test_loader = torch.utils.data.DataLoader(testset, batch_size=100, shuffle=False, num_workers=4)
         return train_loader, test_loader
     if dataset == "CIFAR10":
         if Norm == True:
@@ -273,8 +273,8 @@ def create_dataloader(dataset, Norm):
             transform_test = transforms.Compose([
                 transforms.ToTensor(),
             ])
-        train_dataset = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=transform_train)
-        test_dataset = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=transform_test)
+        train_dataset = torchvision.datasets.CIFAR10(root='/data/xujiazhao', train=True, download=True, transform=transform_train)
+        test_dataset = torchvision.datasets.CIFAR10(root='/data/xujiazhao', train=False, download=True, transform=transform_test)
         train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=128, shuffle=True, num_workers=4)
         test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=100, shuffle=False, num_workers=4)
         return train_loader, test_loader
@@ -301,8 +301,8 @@ def create_dataloader(dataset, Norm):
             transform_test = transforms.Compose([
                 transforms.ToTensor(),
             ])
-        train_dataset = torchvision.datasets.CIFAR100(root='./data', train=True, download=True, transform=transform_train)
-        test_dataset = torchvision.datasets.CIFAR100(root='./data', train=False, download=True, transform=transform_test)
+        train_dataset = torchvision.datasets.CIFAR100(root='/data/xujiazhao', train=True, download=True, transform=transform_train)
+        test_dataset = torchvision.datasets.CIFAR100(root='/data/xujiazhao', train=False, download=True, transform=transform_test)
         train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=128, shuffle=True, num_workers=4)
         test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=100, shuffle=False, num_workers=4)
         return train_loader, test_loader
