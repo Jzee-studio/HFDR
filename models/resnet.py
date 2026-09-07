@@ -246,7 +246,8 @@ class ResNet_LFCM(nn.Module):
     """
 
     def __init__(self, block, num_blocks, num_classes=10, norm=False, mean=None, std=None,
-                 codebook_size=64, code_dim=32, hidden_dim=64, tau=1.0):
+                 codebook_size=64, code_dim=32, hidden_dim=64, tau=1.0,
+                 ema_decay=0.99, dead_threshold=2):
         super(ResNet_LFCM, self).__init__()
         self.in_planes = 64
         self.norm = norm
@@ -269,7 +270,9 @@ class ResNet_LFCM(nn.Module):
                          codebook_size=codebook_size,
                          code_dim=code_dim,
                          hidden_dim=hidden_dim,
-                         tau=tau)
+                         tau=tau,
+                         ema_decay=ema_decay,
+                         dead_threshold=dead_threshold)
 
     def _make_layer(self, block, planes, num_blocks, stride):
         strides = [stride] + [1] * (num_blocks - 1)
@@ -315,8 +318,25 @@ class ResNet_LFCM(nn.Module):
 
 
 def ResNet18_LFCM(Num_class=10, Norm=False, norm_mean=None, norm_std=None,
-                  codebook_size=64, code_dim=32, hidden_dim=64, tau=1.0):
+                  codebook_size=64, code_dim=32, hidden_dim=64, tau=1.0,
+                  ema_decay=0.99, dead_threshold=2):
     return ResNet_LFCM(BasicBlock, [2, 2, 2, 2], num_classes=Num_class,
                        norm=Norm, mean=norm_mean, std=norm_std,
                        codebook_size=codebook_size, code_dim=code_dim,
-                       hidden_dim=hidden_dim, tau=tau)
+                       hidden_dim=hidden_dim, tau=tau,
+                       ema_decay=ema_decay, dead_threshold=dead_threshold)
+
+
+def ResNet50_F(Num_class=10, Norm=False, norm_mean=None, norm_std=None):
+    return ResNet_F(Bottleneck, [3, 4, 6, 3], num_classes=Num_class,
+                    norm=Norm, mean=norm_mean, std=norm_std)
+
+
+def ResNet50_LFCM(Num_class=10, Norm=False, norm_mean=None, norm_std=None,
+                  codebook_size=64, code_dim=32, hidden_dim=64, tau=1.0,
+                  ema_decay=0.99, dead_threshold=2):
+    return ResNet_LFCM(Bottleneck, [3, 4, 6, 3], num_classes=Num_class,
+                       norm=Norm, mean=norm_mean, std=norm_std,
+                       codebook_size=codebook_size, code_dim=code_dim,
+                       hidden_dim=hidden_dim, tau=tau,
+                       ema_decay=ema_decay, dead_threshold=dead_threshold)

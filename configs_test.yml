@@ -3,6 +3,9 @@ Operation:
     Prefix: 'WRN34_200_LFCM'
     #Train Method [AT, Natural]
     Method: 'LFCM'
+    #Backbone network trunk [WRN34, ResNet18, ResNet50] (must match training, default WRN34)
+    #Method->variant mapping: Natural/AT/HFDR -> *_F (HFDR variant); LFCM -> *_LFCM
+    Backbone: 'WRN34'
     #Proposed Method Edit Prefix
     Addtional_string: ''
     Record_string: ''

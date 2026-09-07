@@ -17,16 +17,12 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 with open('configs_test.yml') as f:
     config = EasyDict(yaml.load(f, Loader=yaml.FullLoader))
 
-if config.Operation.Method == 'LFCM':
-    lfcm_cfg = config.get('LFCM', {})
-    net = WRN34_10_LFCM(
-        Num_class=config.DATA.num_class,
-        codebook_size=lfcm_cfg.get('codebook_size', 64),
-        code_dim=lfcm_cfg.get('code_dim', 32),
-        hidden_dim=lfcm_cfg.get('hidden_dim', 64),
-    )
-else:
-    net = WRN34_10_F(Num_class=config.DATA.num_class)
+net = build_model(
+    backbone=config.Operation.get('Backbone', 'WRN34'),
+    method=config.Operation.Method,
+    num_class=config.DATA.num_class,
+    lfcm_cfg=config.get('LFCM', {}),
+)
 
 file_name = config.Operation.Prefix
 data_set = config.DATA.Data

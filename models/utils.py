@@ -251,11 +251,18 @@ class LFCM(nn.Module):
         lambda_gate = torch.sigmoid(self.lambda_raw)       # (C, 1, 1), in [0, 1]
         LF_out = LF + lambda_gate * LF_prime               # (B, C, H, W)
 
-        # 8. Update EMA statistics (only when not in a gradient-computing context,
-        #    e.g., skip during PGD attack inner loop where inputs require grad)
-        if self.training and not LF.requires_grad:
-            self._ema_update(z, w)
-
+        # NOTE: EMA codebook updates are NOT performed here.
+        # 1) In-place buffer updates inside forward() are silently lost when
+        #    the model is wrapped in nn.DataParallel (forward runs on replicas
+        #    and mutated buffers never propagate back to the original module),
+        #    which froze the codebook at random init and kept ema_cluster_size
+        #    at 0 (everything reported "dead").
+        # 2) The codebook participates in the training graph (z_hat = w @
+        #    codebook), so updating it in-place between forward and backward
+        #    raises "modified by an inplace operation".
+        # The training loop must call lfcm._ema_update() explicitly on the
+        # original module AFTER loss.backward()/optimizer.step() for each
+        # forward (see train_LFCM in utils_train.py).
         return LF_out, z, z_hat, w
 
     @torch.no_grad()

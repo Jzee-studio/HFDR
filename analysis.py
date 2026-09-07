@@ -4,8 +4,9 @@
 Analysis & Visualization Script for HFDR / LFCM Experiment Logs
 ================================================================
 Reads training record logs, test evaluation logs and OOD logs from the
-`result/` directory (CIFAR10 at root, CIFAR100/ and TinyImageNet/ subdirs),
-generates a comprehensive markdown report and publication-quality figures.
+`result/` directory (CIFAR10 at root, CIFAR100/, TinyImageNet/ and
+ResNet18/ subdirs), generates a comprehensive markdown report and
+publication-quality figures.
 
 Usage:
     python analysis.py [--result-dir ./result] [--output-dir ./result/figures]
@@ -51,7 +52,7 @@ PALETTE_CODEBOOK = {"K32": "#9b59b6", "K64": "#2ecc71", "K128": "#e67e22",
                     "K256": "#16a085", "K512": "#c0392b"}
 PALETTE_METHOD = {"AT": "#95a5a6", "HFDR": "#3498db", "LFCM": "#2ecc71", "Natural": "#e74c3c"}
 PALETTE_METRIC = {"Clean": "#2ecc71", "PGD-1": "#3498db", "PGD-20": "#f39c12", "PGD-100": "#e67e22", "CW-20": "#9b59b6", "AA": "#e74c3c"}
-PALETTE_DATASET = {"CIFAR10": "#3498db", "CIFAR100": "#e67e22", "TinyImageNet": "#9b59b6"}
+PALETTE_DATASET = {"CIFAR10": "#3498db", "CIFAR100": "#e67e22", "TinyImageNet": "#9b59b6", "ResNet18": "#16a085"}
 
 STAGE_COLORS = {"Stage1": "#ebf5fb", "Stage2": "#fef9e7", "Stage3": "#eafaf1"}
 
@@ -64,6 +65,7 @@ DATASET_DIRS = {
     "CIFAR10": "",
     "CIFAR100": "CIFAR100",
     "TinyImageNet": "TinyImageNet",
+    "ResNet18": "ResNet18",
 }
 
 # Baseline LFCM stem per dataset (used to inject K=64 into codebook ablations)
@@ -71,6 +73,7 @@ LFCM_BASELINE_STEMS = {
     "CIFAR10": "WRN34_10_LFCM",
     "CIFAR100": "WRN34_100_LFCM",
     "TinyImageNet": "WRN34_200_LFCM",
+    "ResNet18": "ResNet18_10_LFCM_K64",
 }
 
 # Dataset -> {filename_stem: (display_name, group, variant_label)}
@@ -100,6 +103,12 @@ EXPERIMENT_META = {
         "WRN34_200_AT":    ("AT (94/110 ep, incomplete)", "method", "AT"),
         "WRN34_200_LFCM":  ("LFCM",   "method", "LFCM"),
         "WRN34_200_Natural": ("Natural", "method", "Natural"),
+    },
+    "ResNet18": {
+        "ResNet18_10_AT":       ("AT",           "method", "AT"),
+        "ResNet18_10_HFDR":     ("HFDR",         "method", "HFDR"),
+        "ResNet18_10_LFCM_K64": ("LFCM (K=64)",  "method", "LFCM"),
+        "ResNet18_10_Natural":  ("Natural",      "method", "Natural"),
     },
 }
 
@@ -620,11 +629,90 @@ def generate_markdown_report(experiments: List[Experiment], figures_dir: str = "
     # Cross-dataset summary
     # ══════════════════════════════════════════════════════════════════
     w("---")
-    w("## 4. Cross-Dataset Summary")
+    # ══════════════════════════════════════════════════════════════════
+    # ResNet18
+    # ══════════════════════════════════════════════════════════════════
+    res18 = dataset_exps("ResNet18")
+    if res18:
+        w("---")
+        w("## 4. ResNet18 (ResNet-18 backbone, CIFAR-10)")
+        w()
+        w("> Training records only — no `_test.log` (PGD/CW/AA) and no OOD evaluation yet. "
+          "`Test Robust Acc` is the adversarial evaluation inside the training loop.")
+        w()
+
+        w("### 4.1 Overall (training-derived)")
+        w()
+        for line in _convergence_table(res18):
+            w(line)
+        w()
+
+        w("### 4.2 Method Comparison (epochs ≥ 100 zoom, Natural excluded)")
+        w()
+        w(fig_link("ResNet18", "comparison_method.png"))
+        w()
+
+        # Backbone comparison: ResNet-18 vs WRN-34-10 on CIFAR-10
+        w("### 4.3 Backbone Comparison: ResNet-18 vs WRN-34-10 (both on CIFAR-10)")
+        w()
+        w("> All metrics below come from the training loop (final-epoch clean/robust acc and "
+          "best-epoch robust acc) so both backbones are measured identically. Dedicated test-log "
+          "metrics for WRN-34-10 are in Section 1; ResNet-18 has no `_test.log` yet.")
+        w()
+        wrn_exps = dataset_exps("CIFAR10")
+
+        def _find_exp(exps: List[Experiment], stem: str) -> Optional[Experiment]:
+            for e in exps:
+                if e.stem == stem:
+                    return e
+            return None
+
+        def _train_metrics(exp: Optional[Experiment]) -> Tuple[Optional[float], Optional[float]]:
+            """(final clean acc, best robust acc) from the training record."""
+            if exp is None or exp.record_df is None or exp.record_df.empty:
+                return None, None
+            df = exp.record_df
+            return df.iloc[-1]["test_acc"], df["test_robust_acc"].max()
+
+        backbone_pairs = [
+            ("LFCM",    "ResNet18_10_LFCM_K64", "WRN34_10_LFCM"),
+            ("HFDR",    "ResNet18_10_HFDR",     "WRN34_10_F_HFDR"),
+            ("AT",      "ResNet18_10_AT",       "WRN34_10_F"),
+            ("Natural", "ResNet18_10_Natural",  "WRN34_10_F_Natural"),
+        ]
+        w("| Method | ResNet-18 Clean (final) | WRN-34 Clean (final) | Δ Clean | ResNet-18 Best Robust | WRN-34 Best Robust | Δ Best Robust |")
+        w("|:-------|:-----------------------:|:--------------------:|:-------:|:---------------------:|:------------------:|:-------------:|")
+        for method, r18_stem, wrn_stem in backbone_pairs:
+            def _pair_cells(a: Optional[float], b: Optional[float]):
+                """Bold the better value of the pair; Δ = ResNet-18 − WRN-34."""
+                if a is None and b is None:
+                    return "—", "—", "—"
+                ca, cb = _fmt(a), _fmt(b)
+                if a is not None and b is not None:
+                    if a > b:
+                        ca = f"**{a:.2f}**"
+                    elif b > a:
+                        cb = f"**{b:.2f}**"
+                d = f"{a - b:+.2f}" if (a is not None and b is not None) else "—"
+                return ca, cb, d
+            r_clean, r_rob = _train_metrics(_find_exp(res18, r18_stem))
+            w_clean, w_rob = _train_metrics(_find_exp(wrn_exps, wrn_stem))
+            rc, wc, dc = _pair_cells(r_clean, w_clean)
+            rr, wr, dr = _pair_cells(r_rob, w_rob)
+            w(f"| {method} | {rc} | {wc} | {dc} | {rr} | {wr} | {dr} |")
+        w()
+        w(fig_link("ResNet18", "backbone_comparison.png"))
+        w()
+
+    # ══════════════════════════════════════════════════════════════════
+    # Cross-dataset summary
+    # ══════════════════════════════════════════════════════════════════
+    w("---")
+    w("## 5. Cross-Dataset Summary")
     w()
     w("| Dataset | Method | Clean Acc | PGD-20 | AutoAttack |")
     w("|:--------|:-------|:---------:|:------:|:----------:|")
-    for ds in ["CIFAR10", "CIFAR100", "TinyImageNet"]:
+    for ds in ["CIFAR10", "CIFAR100", "TinyImageNet", "ResNet18"]:
         for exp in dataset_exps(ds):
             tm = exp.test_metrics
             if not tm:
@@ -643,13 +731,29 @@ def generate_markdown_report(experiments: List[Experiment], figures_dir: str = "
     # Highlights
     # ══════════════════════════════════════════════════════════════════
     w("---")
-    w("## 5. Highlights")
+    w("## 6. Highlights")
     w()
 
-    for ds in ["CIFAR10", "CIFAR100", "TinyImageNet"]:
+    for ds in ["CIFAR10", "CIFAR100", "TinyImageNet", "ResNet18"]:
         ds_exps = dataset_exps(ds)
+        if not ds_exps:
+            continue
         with_test = [e for e in ds_exps if e.has_test]
         if not with_test:
+            # Training-only dataset (ResNet18): report training-derived highlights
+            rec = [e for e in ds_exps if e.record_df is not None and not e.record_df.empty]
+            if not rec:
+                continue
+            best_rob = max(rec, key=lambda e: e.record_df["test_robust_acc"].max())
+            best_clean = max(rec, key=lambda e: e.record_df.iloc[-1]["test_acc"])
+            w(f"**{ds} (training metrics):**")
+            w()
+            w(f"- Best Clean Accuracy (final): **{best_clean.display_name}** — "
+              f"{best_clean.record_df.iloc[-1]['test_acc']:.2f}%")
+            br_series = best_rob.record_df["test_robust_acc"]
+            w(f"- Best Robust Acc (training): **{best_rob.display_name}** — "
+              f"{br_series.max():.2f}% (epoch {int(best_rob.record_df.iloc[br_series.idxmax()]['epoch'])})")
+            w()
             continue
         best_clean, v_clean = _best(with_test, "normal_acc")
         best_aa, v_aa = _best(with_test, "aa")
@@ -670,7 +774,7 @@ def generate_markdown_report(experiments: List[Experiment], figures_dir: str = "
     # ══════════════════════════════════════════════════════════════════
     missing = [e for e in experiments if not e.has_test]
     if missing:
-        w("## 6. Missing Test Data")
+        w("## 7. Missing Test Data")
         w()
         w("Experiments with training logs but **no test evaluation logs**:")
         w()
@@ -1318,6 +1422,49 @@ class Visualization:
         plt.tight_layout(rect=[0, 0, 1, 0.94])
         self._save_root("cross_dataset_summary.png")
 
+    # ── 5l. NEW: Backbone Comparison (ResNet-18 vs WRN-34-10 on CIFAR-10) ──
+
+    def plot_backbone_comparison(self, experiments: List[Experiment]):
+        """Training curves of ResNet-18 vs WRN-34-10 for each method on CIFAR-10."""
+        def get(ds: str, stem: str) -> Optional[Experiment]:
+            for e in experiments:
+                if e.dataset == ds and e.stem == stem and e.record_df is not None:
+                    return e
+            return None
+
+        pairs = [
+            ("LFCM",    "WRN34_10_LFCM",      "ResNet18_10_LFCM_K64"),
+            ("HFDR",    "WRN34_10_F_HFDR",    "ResNet18_10_HFDR"),
+            ("AT",      "WRN34_10_F",         "ResNet18_10_AT"),
+            ("Natural", "WRN34_10_F_Natural", "ResNet18_10_Natural"),
+        ]
+        pairs = [p for p in pairs if get("CIFAR10", p[1]) is not None and get("ResNet18", p[2]) is not None]
+        if not pairs:
+            print("  [SKIP] Backbone comparison: no paired CIFAR10/ResNet18 experiments")
+            return
+
+        fig, axes = plt.subplots(1, 2, figsize=(16, 6.5))
+        fig.suptitle("Backbone Comparison on CIFAR-10: WRN-34-10 vs ResNet-18 (training metrics)",
+                     fontsize=15, fontweight="bold")
+
+        for ax, metric, mlabel in [(axes[0], "test_acc", "Clean Test Acc (%)"),
+                                   (axes[1], "test_robust_acc", "Robust Test Acc (PGD-10, %)")]:
+            for method, wrn_stem, r18_stem in pairs:
+                wrn = get("CIFAR10", wrn_stem)
+                r18 = get("ResNet18", r18_stem)
+                color = PALETTE_METHOD.get(method, "#7f8c8d")
+                ax.plot(wrn.record_df["epoch"], wrn.record_df[metric], "-", color=color,
+                        linewidth=1.4, alpha=0.85, label=f"{method} (WRN-34-10)")
+                ax.plot(r18.record_df["epoch"], r18.record_df[metric], "--", color=color,
+                        linewidth=1.4, alpha=0.85, label=f"{method} (ResNet-18)")
+            ax.axvline(x=100, color="red", linestyle="--", linewidth=0.8, alpha=0.5)
+            ax.set_xlabel("Epoch")
+            ax.set_ylabel(mlabel)
+            ax.legend(loc="lower right", fontsize=8, ncol=2)
+
+        plt.tight_layout(rect=[0, 0, 1, 0.94])
+        self._save("ResNet18", "backbone_comparison.png")
+
 # ==========================================================================
 # 6. MAIN
 # ==========================================================================
@@ -1413,6 +1560,10 @@ def main():
         # 7. Cross-dataset summary
         print("  ── Cross-Dataset Summary ──")
         viz.plot_cross_dataset_summary(experiments)
+
+        # 8. Backbone comparison (ResNet-18 vs WRN-34-10 on CIFAR-10)
+        print("  ── Backbone Comparison ──")
+        viz.plot_backbone_comparison(experiments)
 
         print()
 

@@ -125,25 +125,33 @@ assert n_reset == 54, f"Expected 54 dead codes, got {n_reset}"
 print(f'  Dead codes reset: {n_reset} OK')
 
 print()
-print('=== Test 6: Training Mode vs Eval Mode ===')
+print('=== Test 6: EMA Codebook Update (explicit call, DataParallel-safe) ===')
 lfcm3 = LFCM(in_channel=16, codebook_size=64, code_dim=32)
 x3 = torch.randn(4, 16, 32, 32)
 
-# Training: EMA should update
+# EMA is updated by the training loop (train_LFCM) via an explicit
+# lfcm._ema_update() call on the original module, NOT inside forward():
+# in-place buffer updates inside forward() are lost under nn.DataParallel.
 lfcm3.train()
 ema_before = lfcm3.ema_cluster_size.clone()
-_, _, _, _ = lfcm3(x3)
+cb_before = lfcm3.codebook.clone()
+_, z3, _, w3 = lfcm3(x3)
+ema_after_forward = lfcm3.ema_cluster_size.clone()
+assert torch.equal(ema_before, ema_after_forward), "forward() must NOT mutate buffers"
+lfcm3._ema_update(z3, w3)
 ema_after = lfcm3.ema_cluster_size.clone()
-assert not torch.equal(ema_before, ema_after), "EMA should update in training mode!"
-print(f'  EMA updates in train mode: OK')
+assert not torch.equal(ema_before, ema_after), "explicit _ema_update should update!"
+assert not torch.equal(cb_before, lfcm3.codebook.clone()), "codebook should be updated by EMA!"
+print(f'  forward() leaves buffers untouched: OK')
+print(f'  explicit _ema_update updates ema + codebook: OK')
 
-# Eval: EMA should NOT update
+# Eval: forward should NOT update EMA (module-level, no explicit call)
 lfcm3.eval()
 ema_before_eval = lfcm3.ema_cluster_size.clone()
 with torch.no_grad():
     _, _, _, _ = lfcm3(x3)
 ema_after_eval = lfcm3.ema_cluster_size.clone()
-assert torch.equal(ema_before_eval, ema_after_eval), "EMA should NOT update in eval mode!"
+assert torch.equal(ema_before_eval, ema_after_eval), "EMA should NOT change in eval mode!"
 print(f'  EMA frozen in eval mode: OK')
 
 print()

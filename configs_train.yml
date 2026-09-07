@@ -1,23 +1,26 @@
 Operation:
   #Name
-  Prefix: "WRN34_100_LFCM_K128"
+  Prefix: "ResNet50_10_HFDR"
   #record
   record_words: ""
   #Resume
   Resume: False
   # WandB logging (optional, safe fallback if disabled or unavailable)
   Use_WandB: True
-  WandB_Project: "LFCM"
+  WandB_Project: "HFDR"
   WandB_Entity: ""
-  WandB_Group: "LFCM"
-  WandB_RunName: "WRN34_100_LFCM_K128"
-  WandB_Tags: ["CIFAR100","LFCM","K128"]
+  WandB_Group: "HFDR"
+  WandB_RunName: "ResNet50_10_HFDR"
+  WandB_Tags: ["CIFAR10","HFDR","ResNet50"]
   WandB_Mode: "online"
 Train:
   #Train Method [AT,HFDR,Natural,LFCM]
-  Train_Method: "LFCM"
+  Train_Method: "HFDR"
+  #Backbone network trunk [WRN34, ResNet18, ResNet50] (default WRN34, fully compatible with old configs)
+  #Method->variant mapping: Natural/AT/HFDR -> *_F (HFDR variant); LFCM -> *_LFCM
+  Backbone: "ResNet50"
   #Data [CIFAR10, CIFAR100, ImageNet-1K]
-  Data: "CIFAR100"
+  Data: "CIFAR10"
   #Train Epoch
   Epoch: 110
   #Learning
@@ -29,7 +32,7 @@ Train:
   pgd_train: 10
 DATA:
   #Num class
-  num_class: 100
+  num_class: 10
   # Dataset mean and std used for data normalization
   mean: !!python/tuple [0.4914, 0.4822, 0.4465]
   std: !!python/tuple [0.2471, 0.2435, 0.2616]
@@ -49,7 +52,7 @@ ADV:
 # ============================================================
 LFCM:
   # -- Architecture --
-  codebook_size: 128         # K: number of canonical codes
+  codebook_size: 64         # K: number of canonical codes
   code_dim: 32             # d: dimension of each code vector
   hidden_dim: 64           # MLP hidden dimension in encoder/decoder
 

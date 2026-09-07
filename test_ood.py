@@ -49,35 +49,6 @@ DATASET_CONFIG = {
 }
 
 
-def build_model(config):
-    if config.Train.Train_Method == "LFCM":
-        lfcm_cfg = config.get('LFCM', {})
-        net = WRN34_10_LFCM(
-            Num_class=config.DATA.num_class,
-            codebook_size=lfcm_cfg.get('codebook_size', 64),
-            code_dim=lfcm_cfg.get('code_dim', 32),
-            hidden_dim=lfcm_cfg.get('hidden_dim', 64),
-        )
-    else:
-        net = WRN34_10_F(Num_class=config.DATA.num_class)
-    net.Num_class = config.DATA.num_class
-    norm_mean = torch.tensor(config.DATA.mean).to(device)
-    norm_std = torch.tensor(config.DATA.std).to(device)
-
-    if config.Train.Train_Method in {"AT", "HFDR", "TRADES", "LFCM"}:
-        net.Norm = True
-        net.norm_mean = norm_mean
-        net.norm_std = norm_std
-        data_norm = False
-    else:
-        net.Norm = False
-        data_norm = True
-
-    net = net.to(device)
-    net = torch.nn.DataParallel(net)
-    return net, data_norm
-
-
 def load_checkpoint(net, checkpoint_path: str):
     checkpoint = torch.load(checkpoint_path, map_location=device)
     net.load_state_dict(checkpoint["state_dict"])
@@ -198,7 +169,31 @@ def main():
     if not os.path.isfile(checkpoint_path):
         raise FileNotFoundError(f"Checkpoint not found: {checkpoint_path}")
 
-    net, data_norm = build_model(config)
+    lfcm_cfg = config.get('LFCM', {})
+    # 只透传架构键：旧代码构建时不传 tau（模块默认 1.0），若直接读 train 配置的
+    # tau_init: 2.0 会改变 WRN34 评估行为（tau 影响前向输出），必须过滤
+    eval_lfcm_cfg = {k: lfcm_cfg.get(k) for k in ('codebook_size', 'code_dim', 'hidden_dim')}
+    net = build_model(
+        backbone=config.Train.get('Backbone', 'WRN34'),
+        method=config.Train.Train_Method,
+        num_class=config.DATA.num_class,
+        lfcm_cfg=eval_lfcm_cfg,
+    )
+    net.Num_class = config.DATA.num_class
+    norm_mean = torch.tensor(config.DATA.mean).to(device)
+    norm_std = torch.tensor(config.DATA.std).to(device)
+
+    if config.Train.Train_Method in {"AT", "HFDR", "TRADES", "LFCM"}:
+        net.Norm = True
+        net.norm_mean = norm_mean
+        net.norm_std = norm_std
+        data_norm = False
+    else:
+        net.Norm = False
+        data_norm = True
+
+    net = net.to(device)
+    net = torch.nn.DataParallel(net)
     net = load_checkpoint(net, checkpoint_path)
 
     corruptions = args.corruptions if args.corruptions else get_corruptions(dataset_name)

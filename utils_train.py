@@ -693,6 +693,17 @@ def train_LFCM(net: nn.Module, epoch: int, train_loader: DataLoader, optimizer: 
 
         optimizer.step()
 
+        # EMA codebook update. MUST run after backward()/step(): the codebook
+        # participates in the training graph (z_hat = w @ codebook), so any
+        # in-place buffer write between forward and backward invalidates the
+        # graph (RuntimeError: modified by an inplace operation). Must also run
+        # on the original module, NOT through the DataParallel forward
+        # (in-place buffer updates inside forward() are lost on replicas).
+        # Clean + adv both update, matching the old forward-time behaviour
+        # (adv_inputs is detached, so both were requires_grad=False).
+        lfcm._ema_update(aux_clean['z'], aux_clean['w'])
+        lfcm._ema_update(aux_adv['z'], aux_adv['w'])
+
         train_loss += loss.item()
         _, predicted = adv_logits.max(1)
         total += targets.size(0)

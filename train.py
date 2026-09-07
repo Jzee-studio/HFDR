@@ -31,24 +31,12 @@ wandb_logger = WandBLogger(enabled=use_wandb, config={
 })
 
 # modify the load model
-if config.Train.Train_Method == 'LFCM':
-    lfcm_cfg = config.get('LFCM', {})
-    net = WRN34_10_LFCM(
-        Num_class=config.DATA.num_class,
-        codebook_size=lfcm_cfg.get('codebook_size', 64),
-        code_dim=lfcm_cfg.get('code_dim', 32),
-        hidden_dim=lfcm_cfg.get('hidden_dim', 64),
-        tau=lfcm_cfg.get('tau_init', 1.0),
-        ema_decay=lfcm_cfg.get('ema_decay', 0.99),
-        dead_threshold=lfcm_cfg.get('dead_threshold', 2),
-    )
-    net.lfcm_arch = {
-        'codebook_size': lfcm_cfg.get('codebook_size', 64),
-        'code_dim': lfcm_cfg.get('code_dim', 32),
-        'hidden_dim': lfcm_cfg.get('hidden_dim', 64),
-    }
-else:
-    net = WRN34_10_F(Num_class=config.DATA.num_class)
+net = build_model(
+    backbone=config.Train.get('Backbone', 'WRN34'),
+    method=config.Train.Train_Method,
+    num_class=config.DATA.num_class,
+    lfcm_cfg=config.get('LFCM', {}),
+)
 
 file_name = config.Operation.Prefix
 data_set = config.Train.Data
