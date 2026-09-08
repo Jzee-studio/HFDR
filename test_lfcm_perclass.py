@@ -120,17 +120,17 @@ MODEL_MANIFEST = {
     "CIFAR10": [
         {"name": "AT",        "method": "AT",   "prefix": "WRN34_10_F",          "lfcm": None},
         {"name": "HFDR",      "method": "HFDR", "prefix": "WRN34_10_F_HFDR",     "lfcm": None},
-        {"name": "LFCM_K32",  "method": "LFCM", "prefix": "WRN34_10_LFCM_K32",   "lfcm": {"codebook_size": 32}},
-        {"name": "LFCM_K64",  "method": "LFCM", "prefix": "WRN34_10_LFCM",       "lfcm": {"codebook_size": 64}},
-        {"name": "LFCM_K128", "method": "LFCM", "prefix": "WRN34_10_LFCM_K128",  "lfcm": {"codebook_size": 128}},
+        {"name": "LFCM_K32",  "method": "LFCM", "prefix": "WRN34_10_LFCM_K32",   "lfcm": {"codebook_size": 32, "code_dim": 32, "hidden_dim": 64}},
+        {"name": "LFCM_K64",  "method": "LFCM", "prefix": "WRN34_10_LFCM",       "lfcm": {"codebook_size": 64, "code_dim": 32, "hidden_dim": 64}},
+        {"name": "LFCM_K128", "method": "LFCM", "prefix": "WRN34_10_LFCM_K128",  "lfcm": {"codebook_size": 128, "code_dim": 32, "hidden_dim": 64}},
     ],
     "CIFAR100": [
         {"name": "AT",        "method": "AT",   "prefix": "WRN34_100_AT",        "lfcm": None},
         {"name": "HFDR",      "method": "HFDR", "prefix": "WRN34_100_HFDR",      "lfcm": None},
-        {"name": "LFCM_K64",  "method": "LFCM", "prefix": "WRN34_100_LFCM",      "lfcm": {"codebook_size": 64}},
-        {"name": "LFCM_K128", "method": "LFCM", "prefix": "WRN34_100_LFCM_K128", "lfcm": {"codebook_size": 128}},
-        {"name": "LFCM_K256", "method": "LFCM", "prefix": "WRN34_100_LFCM_K256", "lfcm": {"codebook_size": 256}},
-        {"name": "LFCM_K512", "method": "LFCM", "prefix": "WRN34_100_LFCM_K512", "lfcm": {"codebook_size": 512}},
+        {"name": "LFCM_K64",  "method": "LFCM", "prefix": "WRN34_100_LFCM",      "lfcm": {"codebook_size": 64, "code_dim": 32, "hidden_dim": 64}},
+        {"name": "LFCM_K128", "method": "LFCM", "prefix": "WRN34_100_LFCM_K128", "lfcm": {"codebook_size": 128, "code_dim": 32, "hidden_dim": 64}},
+        {"name": "LFCM_K256", "method": "LFCM", "prefix": "WRN34_100_LFCM_K256", "lfcm": {"codebook_size": 256, "code_dim": 32, "hidden_dim": 64}},
+        {"name": "LFCM_K512", "method": "LFCM", "prefix": "WRN34_100_LFCM_K512", "lfcm": {"codebook_size": 512, "code_dim": 32, "hidden_dim": 64}},
     ],
 }
 
@@ -168,9 +168,12 @@ def build_and_load_model(dataset_name, entry, checkpoint_root, checkpoint_name):
     num_class = cfg["num_class"]
 
     # 只透传架构键：与 test_ood.py 一致，tau 保持模块默认 1.0
+    # 注意丢弃 None 值：build_model 里 .get(key, default) 只在键缺失时才用默认值，
+    # 键存在但值为 None 会把 None 传给 nn.Linear 导致构建失败
     lfcm_cfg = entry.get("lfcm")
     if lfcm_cfg is not None:
-        lfcm_cfg = {k: lfcm_cfg.get(k) for k in ("codebook_size", "code_dim", "hidden_dim")}
+        lfcm_cfg = {k: v for k, v in lfcm_cfg.items()
+                    if k in ("codebook_size", "code_dim", "hidden_dim") and v is not None}
 
     net = build_model(
         backbone="WRN34",
